@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+   
+<head>
+   <title>Jogo de Millenium</title>
+   <script src="animacao.js"></script>
+   <script src="teclado.js"></script>
+   <script src="colisor.js"></script>
+   <script src="fundo.js"></script>
+   <script src="millenium.js"></script>
+   <script src="tie.js"></script>
+   <script src="tiro.js"></script>
+   <script src="spritesheet.js"></script>
+   <script src="explosao.js"></script>
+   <script src="painel.js"></script>
+   <style>
+   #link_jogar {
+      /* Inicia oculto */
+      display: none;
+   
+      /* Cores e fundo */
+      color: yellow;
+      background: url(img/botao-jogar.png);
+         
+      /* Fonte */
+      font-size: 17px;
+      font-family:monospace;
+      
+      /* Sem sublinhado e com sombra */
+      text-decoration: none;
+      text-shadow: 2px 2px 5px black;
+         
+      /* Posicionamento */
+      position: absolute;
+      left: 220px;
+      top: 330px;
+
+      /* A imagem do botão é 72x72, descontamos os paddings */
+      width: 46px;
+      height: 24px;
+      padding: 5px 13px;
+   }
+       #logo {
+           
+                 background: url(img/logo.png);
+         
+      /* Fonte */
+      font-size: 17px;
+      font-family:monospace;
+      
+      /* Sem sublinhado e com sombra */
+      text-decoration: none;
+      text-shadow: 2px 2px 5px black;
+         
+      /* Posicionamento */
+      position: absolute;
+      left: 135px;
+      top: 150px;
+
+      /* A imagem do botão é 72x72, descontamos os paddings */
+      width: 215px;
+      height: 115px;
+      padding: 5px 13px;
+       }
+   </style>
+</head>
+
+<body>
+    <a id="logo"></a>
+   <canvas id="canvas_animacao" width="500" height="500"></canvas>
+   
+   <a id="link_jogar" href="javascript: iniciarJogo()">JOGAR</a>
+   
+   <script>
+      // Canvas e Context
+      var canvas = document.getElementById('canvas_animacao');
+      var context = canvas.getContext('2d');
+
+      // Variáveis principais
+      var imagens, animacao, teclado, colisor, millenium, criadorInimigos;
+      var totalImagens = 0, carregadas = 0;
+      var musicaAcao;
+      
+      // Começa carregando as imagens e músicas
+      carregarImagens();
+      carregarMusicas();
+      
+      function carregarImagens() {
+         // Objeto contendo os nomes das imagens
+         imagens = {
+            espaco:   'fundo-espaco.png', 
+            estrelas: 'fundo-estrelas.png', 
+            nuvens:   'fundo-nuvens.png', 
+            millenium:     'millenium-spritesheet.png', 
+            tie:     'tie.png',
+            explosao: 'explosao.png',
+            logo: 'logo.png'
+         };
+         
+         // Carregar todas
+         for (var i in imagens) {
+            var img = new Image();
+            img.src = 'img/' + imagens[i];
+            img.onload = carregando;
+            totalImagens++;
+            
+            // Substituir o nome pela imagem
+            imagens[i] = img;
+         }
+      }
+      
+      function carregando() {
+         context.save();
+      
+         
+         // Fundo 
+         context.drawImage(imagens.espaco, 0, 0, canvas.width,
+                           canvas.height);
+         
+         // Texto "Carregando"
+         context.fillStyle = 'white';
+         context.strokeStyle = 'yellow';
+
+    
+         context.fillStyle = 'yellow';
+         context.font = '16px Monospace';
+          
+          
+         context.fillText("Fernanda da Rocha", 10, 470);
+         context.fillText("20191102077", 30, 490);
+         context.fillText("Augusto Ferreira", 350, 470);
+         context.fillText("20191103562", 370, 490);
+
+
+         // Barra de loading
+         carregadas++;
+         var tamanhoTotal = 300;
+         var tamanho = carregadas / totalImagens * tamanhoTotal;
+         context.fillStyle = 'yellow';
+         context.fillRect(100, 180, tamanho, 10);
+         
+         context.restore();         
+         
+         if (carregadas == totalImagens) {
+            iniciarObjetos();
+            mostrarLinkJogar();
+         }
+      }
+      
+      function iniciarObjetos() {
+         // Objetos principais
+         animacao = new Animacao(context);
+         teclado = new Teclado(document);
+         colisor = new Colisor();
+         espaco = new Fundo(context, imagens.espaco);
+         estrelas = new Fundo(context, imagens.estrelas);
+         nuvens = new Fundo(context, imagens.nuvens);
+         millenium = new Millenium(context, teclado, imagens.millenium, 
+                         imagens.explosao);
+         painel = new Painel(context, millenium);
+         
+         // Ligações entre objetos
+         animacao.novoSprite(espaco);
+         animacao.novoSprite(estrelas);
+         animacao.novoSprite(nuvens);
+         animacao.novoSprite(painel);
+         animacao.novoSprite(millenium);
+         
+         colisor.novoSprite(millenium);
+         animacao.novoProcessamento(colisor);
+         
+         configuracoesIniciais();
+      }
+      
+      function configuracoesIniciais() {
+         // Fundos
+         espaco.velocidade = 60;
+         estrelas.velocidade = 150;
+         nuvens.velocidade = 500;
+         
+         // millenium
+         millenium.posicionar();
+         millenium.velocidade = 200;
+         
+         // Inimigos
+         criacaoInimigos();
+         
+         // Game Over
+         millenium.acabaramVidas = function() {
+            animacao.desligar();
+            gameOver();
+         }
+         
+         // Pontuação
+         colisor.aoColidir = function(o1, o2) {
+            // Tiro com Tie
+            if ( (o1 instanceof Tiro && o2 instanceof Tie) ||
+                 (o1 instanceof Tie && o2 instanceof Tiro) )
+               painel.pontuacao += 10;
+         }
+      }
+      
+      function criacaoInimigos() {
+         criadorInimigos = {
+            ultimoTie: new Date().getTime(),
+            
+            processar: function() {
+               var agora = new Date().getTime();
+               var decorrido = agora - this.ultimoTie;
+               
+               if (decorrido > 1000) {
+                  novoTie();
+                  this.ultimoTie = agora;
+               }
+            }
+         };
+         
+         animacao.novoProcessamento(criadorInimigos);
+      }
+      
+      function novoTie() {
+         var imgTie = imagens.tie;
+         var tie = new Tie(context, imgTie, imagens.explosao);
+
+         // Mínimo: 500; máximo: 1000
+         tie.velocidade = 
+            Math.floor( 500 + Math.random() * (1000 - 500 + 1) );
+         
+         // Mínimo: 0; máximo: largura do canvas - largura do tie   
+         tie.x = 
+            Math.floor(Math.random() * 
+                       (canvas.width - imgTie.width + 1) );
+                  
+         // Descontar a altura
+         tie.y = -imgTie.height;
+         
+         animacao.novoSprite(tie);
+         colisor.novoSprite(tie);
+      }
+      
+      function pausarJogo() {
+         if (animacao.ligado) {
+            animacao.desligar();
+            ativarTiro(false);
+            context.save();
+            context.fillStyle = 'white';
+            context.strokeStyle = 'yellow';
+            context.font = '50px monospace';
+            context.fillText("Pausado", 160, 200);
+            context.strokeText("Pausado", 160, 200);
+            context.restore();
+         }
+         else {
+            criadorInimigos.ultimoTie = new Date().getTime();
+            animacao.ligar();
+            ativarTiro(true);
+         }
+      }
+      
+      function ativarTiro(ativar) {
+         if (ativar) {
+            teclado.disparou(ESPACO, function() {
+               millenium.atirar();
+            });
+         }
+         else
+            teclado.disparou(ESPACO, null);
+      }
+      
+      function carregarMusicas() {
+         musicaAcao = new Audio();
+         musicaAcao.src = 'snd/musica-acao.mp3';
+         musicaAcao.volume = 0.8;
+         musicaAcao.loop = true;
+         musicaAcao.load();
+      }
+      
+      function mostrarLinkJogar() {
+         document.getElementById('link_jogar').style.display =
+            'block';
+      }
+      
+      function iniciarJogo() {
+         criadorInimigos.ultimoTie = new Date().getTime();
+      
+         // Tiro
+         ativarTiro(true);
+         
+         // Pausa
+         teclado.disparou(ENTER, pausarJogo);
+         
+         document.getElementById('link_jogar').style.display =
+            'none';
+         document.getElementById('logo').style.display =
+            'none';
+         musicaAcao.play();
+         animacao.ligar();
+      }
+      
+      function gameOver() {
+         // Tiro
+         ativarTiro(false);
+         
+         // Pausa
+         teclado.disparou(ENTER, null);
+         
+         // Parar a música e rebobinar
+         musicaAcao.pause();
+         musicaAcao.currentTime = 0.0;
+         
+         // Fundo
+         context.drawImage(imagens.espaco, 0, 0, canvas.width,
+                           canvas.height);
+         
+         // Texto "Game Over"
+         context.save();
+         context.fillStyle = 'white';
+         context.strokeStyle = 'yellow';
+         context.font = '70px monospace';
+         context.fillText("GAME OVER", 40, 200);
+         context.strokeText("GAME OVER", 40, 200);
+         context.restore();
+         
+         // Volta o link "Jogar"
+         mostrarLinkJogar();
+         
+         // Restaurar as condições da nave
+         millenium.vidasExtras = 3;
+         millenium.posicionar();
+         animacao.novoSprite(millenium);
+         colisor.novoSprite(millenium);
+         
+         // Tirar todos os inimigos da tela
+         removerInimigos();
+      }
+      
+      function removerInimigos() {
+         for (var i in animacao.sprites) {
+            if (animacao.sprites[i] instanceof Tie)
+               animacao.excluirSprite(animacao.sprites[i]);
+         }
+      }
+   </script>
+</body>
+
+</html>
