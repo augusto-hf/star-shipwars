@@ -29,7 +29,8 @@ Painel.prototype = {
       // Pontuação
       ctx.save();
       ctx.fillStyle = 'white';
-      ctx.font = '18px sans-serif';
+      ctx.fillStyle = 'yellow';
+      ctx.font = '18px monospace';
       ctx.fillText(this.pontuacao, 100, 27);
       ctx.restore();   
    }
